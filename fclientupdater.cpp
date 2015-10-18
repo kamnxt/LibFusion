@@ -1,4 +1,5 @@
 #include "fclientupdater.h"
+#include "libfusion.h"
 
 FClientUpdater::FClientUpdater(QObject *parent) : QObject(parent)
 {
@@ -6,13 +7,13 @@ FClientUpdater::FClientUpdater(QObject *parent) : QObject(parent)
 }
 
 //Gets current client version from API.
-QString FClientUpdater::getCRClientVersion()
+FusionVersion FClientUpdater::getCRClientVersion()
 {
     manager = new QNetworkAccessManager(this);
     QEventLoop loop;
     QObject::connect(manager, SIGNAL(finished(QNetworkReply*)), &loop, SLOT(quit()));
 
-    QNetworkRequest request(QUrl("https://pacific-citadel-1552.herokuapp.com/api/version/fusionClient"));
+    QNetworkRequest request(QUrl("http://projfusion.com/files/Releases/version.txt"));
     QNetworkReply *reply = manager->get(request);
     reply->ignoreSslErrors();
 
@@ -22,86 +23,111 @@ QString FClientUpdater::getCRClientVersion()
     reply->deleteLater();
     text.remove('"');
 
-    if ((text.isEmpty()) || (text.isNull())) { qDebug() << "[ERROR] Client version from API is empty or null. There may be no connection to the API."; return "NA"; }
+    if ((text.isEmpty()) || (text.isNull())) {
+        qDebug() << "[ERROR] Client version from API is empty or null. There may be no connection to the API.";;
+    }
+
     qDebug() << "Current client version: " << text;
-    return text;
+
+    FusionVersion v = strToVersion(text);
+    return v;
+}
+
+QString FClientUpdater::VersionToStr(FusionVersion v) {
+    return QString::number(v.Major) + "." +  QString::number(v.Minor) + "." +  QString::number(v.Build);
 }
 
 //Gets downloaded client version from file.
-QString FClientUpdater::getDLClientVersion(QString filePath)
+FusionVersion FClientUpdater::getDLClientVersion(QString filePath)
 {
     if (fileExists(filePath))
     {
-
-        qDebug() << "Downloaded client version: " << FClientUpdater::readVersion(filePath);
-        return FClientUpdater::readVersion(filePath);
+        return strToVersion(FClientUpdater::readVersion(filePath));
     }
     else
     {
-
         qDebug() << "Unable to find version file.";
-        return "NA";
+        return strToVersion("");//Returns 0.0.0
     }
 }
 
-//Compare downloaded client version with current client version.
-bool FClientUpdater::isCurrentClient(QString path)
-{
+FusionVersion FClientUpdater::strToVersion(QString VStr) {
+    FusionVersion v;
+    v.Build = v.Minor = v.Major = 0;
+    //Proper Version: 1.2.3
 
-    if (getDLClientVersion(path) == getCRClientVersion())
-    {
-        qDebug() << "Downloaded client version does match current client version.";
+    QStringList tmp = VStr.split("\n");
 
-        return true;
-    }
+    if(tmp.length()!=2)
+        return v;
 
-    else if (getCRClientVersion() == "NA")
-    {
-        //There is no connection to the api.
-        qDebug() << "[ERROR] Client version from API is empty or null. There may be no connection to the API.";
+    if(tmp[0].length() != 5)
+        return v;
 
-        return true;
-    }
+    bool convOK;
 
-    else if (getDLClientVersion(path) == "NA")
-    {
+    int Major = tmp[0].left(1).toInt(&convOK);
 
-        qDebug() << "There is no downloaded client.";
+    if(!convOK)
+        return v;
 
-        return true;
-    }
 
-    else
-    {
-        qDebug() << "Downloaded client version does not match current client version.";
+    int Minor = tmp[0].mid(2,1).toInt(&convOK);
 
-        return false;
-    }
+    if(!convOK)
+        return v;
+
+
+    int Build = tmp[0].mid(4,1).toInt(&convOK);
+
+    if(!convOK)
+        return v;
+
+    QString Name = tmp[1];
+    if(Name.length()<=0)
+        return v;
+
+    v.Build = Build;
+    v.Minor = Minor;
+    v.Major = Major;
+    v.Name = Name;
+    v.initialized = true;
+    return v;
 }
+
 
 //Returns true if file exists
 bool FClientUpdater::fileExists(QString filePath)
 {
 
-    qDebug() << filePath << " exists: " << qd->exists(filePath);
+ //   qDebug() << filePath << " exists: " << qd->exists(filePath);
     return qd->exists(filePath);
 }
 
 //Write version info
-void FClientUpdater::writeVersion(QString version, QString filePath)
+void FClientUpdater::writeVersion(QString version, QString currentPath)
 {
-    QFile file(filePath);
-    file.open(QIODevice::WriteOnly);
+    QFile file(LibFusion::getWorkingDir().absolutePath() + "/FVersion.txt");
+    if (!file.open(QIODevice::WriteOnly|QIODevice::Text|QIODevice::Truncate))
+        return;
+
     QDataStream out(&file);
 
-    out << version;
+    out << version.toLatin1();
     file.close();
+
+    QFile filePath(LibFusion::getWorkingDir().absolutePath() + "/FPath.txt");
+    if (!filePath.open(QIODevice::WriteOnly|QIODevice::Text|QIODevice::Truncate))
+            return;
+
+    QDataStream outP(&filePath);
+    outP << currentPath.toLatin1();
+    filePath.close();
 
 }
 
 QString FClientUpdater::readVersion(QString filePath)
 {
-
     QString fileVersion;
 
     QFile file(filePath);
@@ -109,6 +135,24 @@ QString FClientUpdater::readVersion(QString filePath)
     QDataStream in(&file);
 
     in >> fileVersion;
+    fileVersion = file.readAll();
+
     file.close();
     return fileVersion;
+}
+
+
+QString FClientUpdater::readPath()
+{
+    QString fileVersion;
+
+    QFile file(LibFusion::getWorkingDir().absolutePath() + "/FPath.txt");
+    file.open(QIODevice::ReadOnly);
+    QDataStream in(&file);
+
+    in >> fileVersion;
+    fileVersion = file.readAll();
+    file.close();
+    return fileVersion;
+
 }

@@ -25,7 +25,9 @@ SOURCES += libfusion.cpp \
     fdbupdater.cpp \
     fclientupdater.cpp \
     flauncher.cpp \
-    fwatchedfolder.cpp
+    fwatchedfolder.cpp \
+    ffilesync.cpp \
+    flogger.cpp
 
 HEADERS += libfusion.h\
     libfusion_global.h \
@@ -39,7 +41,11 @@ HEADERS += libfusion.h\
     fdbupdater.h \
     fclientupdater.h \
     flauncher.h \
-    fwatchedfolder.h
+    fwatchedfolder.h \
+    ffilesync.h \
+    fexception.h \
+    f_dbg.h \
+    flogger.h
 
 unix {
     target.path = /usr/lib

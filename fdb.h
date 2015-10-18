@@ -1,17 +1,16 @@
 #ifndef FDB_H
 #define FDB_H
 
-#ifndef FGAME_H
-#include <fgame.h>
-#endif
 
 #include <QObject>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include "flauncher.h"
 
+#include "fgame.h"
 #include "fwatchedfolder.h"
 #include "libfusion_global.h"
+
 
 class LIBFUSIONSHARED_EXPORT FDB : public QObject
 {
@@ -38,31 +37,42 @@ public:
 
     bool updateWatchedFolders(QList<FWatchedFolder> data);
     QList<FWatchedFolder> getWatchedFoldersList();
+    bool watchedFolderExists(FWatchedFolder *wf);
+    bool addWatchedFolder(FWatchedFolder wf);
+
+
     bool beginTransaction();
     bool endTransaction();
     bool rollbackTransaction();
     bool gameExists(FGame game);
     bool runQuery(QSqlQuery q);
+
     bool updateBoolPref(QString pref, bool value);
     bool addBoolPref(QString pref, bool value);
     bool getBoolPref(QString pref);
     bool getBoolPref(QString pref, bool defaultValue);
 
+
     int addLauncher(FLauncher launcher);
     bool updateLaunchers(QList<FLauncher> launchers);
     FLauncher getLauncher(int id);
     QList<FLauncher> getLaunchers();
+    bool updateLauncher(FLauncher launcher);
+    bool launcherExists(FLauncher launcher);
 
 
     bool updateGame(FGame *g);
-    bool updateLauncher(FLauncher launcher);
-    bool launcherExists(FLauncher launcher);
+    bool updateLastLaunched(FGame *g);
+    QList<FGame *> getLatestLaunchedGames(int limit);
+
+    QDir getSavegameDir();
 
 private:
     QSqlDatabase db;
     QSqlQuery query;
 
     FGame *createGameFromQuery(QSqlQuery query);
+    bool tryExecute(QSqlQuery *q);
 signals:
 
 public slots:
